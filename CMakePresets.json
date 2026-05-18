@@ -1,0 +1,85 @@
+{
+  "version": 2,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "full",
+      "displayName": "linux-full (all domains + demo)",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/linux/full",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_POD_CORE": "ON",
+        "BUILD_ZF_LEGACY_CORE": "OFF",
+        "BUILD_POD_DEMO": "ON",
+        "BUILD_POD_PLUGIN": "ON",
+        "BUILD_POD_DATA": "ON",
+        "BUILD_POD_RUNTIME": "ON",
+        "BUILD_POD_CODEC": "ON",
+        "BUILD_POD_TRANSPORT": "ON",
+        "BUILD_POD_CONTROL": "ON",
+        "BUILD_PLATFORM_LAYER": "ON",
+        "BUILD_CORE_LAYER": "ON"
+      }
+    },
+    {
+      "name": "stream_only",
+      "displayName": "linux-stream_only (transport + codec + data + platform + core)",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/linux/stream_only",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_POD_CORE": "ON",
+        "BUILD_ZF_LEGACY_CORE": "OFF",
+        "BUILD_POD_DEMO": "OFF",
+        "BUILD_POD_PLUGIN": "OFF",
+        "BUILD_POD_DATA": "ON",
+        "BUILD_POD_RUNTIME": "OFF",
+        "BUILD_POD_CODEC": "ON",
+        "BUILD_POD_TRANSPORT": "ON",
+        "BUILD_POD_CONTROL": "OFF",
+        "BUILD_PLATFORM_LAYER": "ON",
+        "BUILD_CORE_LAYER": "ON"
+      }
+    },
+    {
+      "name": "control_only",
+      "displayName": "linux-control_only (control + platform + core)",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/linux/control_only",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_POD_CORE": "ON",
+        "BUILD_ZF_LEGACY_CORE": "OFF",
+        "BUILD_POD_DEMO": "OFF",
+        "BUILD_POD_PLUGIN": "OFF",
+        "BUILD_POD_DATA": "OFF",
+        "BUILD_POD_RUNTIME": "OFF",
+        "BUILD_POD_CODEC": "OFF",
+        "BUILD_POD_TRANSPORT": "OFF",
+        "BUILD_POD_CONTROL": "ON",
+        "BUILD_PLATFORM_LAYER": "ON",
+        "BUILD_CORE_LAYER": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "full",
+      "configurePreset": "full"
+    },
+    {
+      "name": "stream_only",
+      "configurePreset": "stream_only"
+    },
+    {
+      "name": "control_only",
+      "configurePreset": "control_only"
+    }
+  ]
+}
+
