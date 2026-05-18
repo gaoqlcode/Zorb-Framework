@@ -62,7 +62,12 @@ static bool Runtime_createPool(PodRuntime *pRuntime, uint8_t stream_id)
 {
     uint8_t idx = StreamToIndex(stream_id);
 
-    /* 按需创建帧池，避免未使用流占用内存。 */
+    /*
+     * 每路流第一次真正产帧前才创建帧池。
+     * 这样做的好处是：
+     * 1. 未启用的视频流不占内存。
+     * 2. 运行时对象创建阶段尽量轻量，失败点更少。
+     */
     if (pRuntime->pFramePools[idx] != NULL)
     {
         return true;
@@ -77,6 +82,7 @@ static void Runtime_disposePools(PodRuntime *pRuntime)
 {
     uint32_t i;
 
+    /* 退出时统一释放所有流对应的帧池。 */
     for (i = 0; i < POD_STREAM_SLOT_COUNT; i++)
     {
         if (pRuntime->pFramePools[i] != NULL)
@@ -107,6 +113,10 @@ bool PodRuntime_create(PodRuntime **ppRuntime, const PodRuntimeInit *pInit)
     pRuntime->pPluginManager = pInit->pPluginManager;
     pRuntime->Profile = pInit->Profile;
 
+    /*
+     * 运行时创建时顺手把 profile 中的 CPU 规划下发到平台层。
+     * 这样后续采集、编码、网络线程如果需要绑核，就有统一来源。
+     */
     cpu_plan.CaptureCpu = pRuntime->Profile.CaptureCpu;
     cpu_plan.EncodeCpu = pRuntime->Profile.EncodeCpu;
     cpu_plan.NetworkCpu = pRuntime->Profile.NetworkCpu;
@@ -134,7 +144,10 @@ int32_t PodRuntime_start(PodRuntime *pRuntime)
 
     ZF_ASSERT(pRuntime != (PodRuntime *)0)
 
-    /* 启动顺序必须固定：Init -> Open -> StartStream。 */
+    /*
+     * 启动顺序必须固定：Init -> Open -> StartStream。
+     * 理解方式可以类比“先配参数，再打开设备，最后启动数据流”。
+     */
     ret = PodPluginManager_initAll(pRuntime->pPluginManager, "");
     if (ret != 0)
     {
@@ -156,6 +169,7 @@ int32_t PodRuntime_stop(PodRuntime *pRuntime)
 
     ZF_ASSERT(pRuntime != (PodRuntime *)0)
 
+    /* 停止顺序与启动顺序相反，先停流，再关设备。 */
     ret = PodPluginManager_stopAll(pRuntime->pPluginManager);
     if (ret != 0)
     {
@@ -173,7 +187,8 @@ int32_t PodRuntime_pollOnce(PodRuntime *pRuntime, uint32_t timeout_ms)
 
     /*
      * 轮询每个插件拉帧，并进入对应流的 ready 队列。
-     * 这是采集侧的核心入口，保持“失败即跳过”的实时策略。
+     * 这是采集侧的核心入口，保持“失败即跳过”的实时策略：
+     * 某一路偶发超时，不应该阻塞其他流继续工作。
      */
     for (i = 0; i < PodPluginManager_getCount(pRuntime->pPluginManager); i++)
     {
@@ -195,7 +210,10 @@ int32_t PodRuntime_pollOnce(PodRuntime *pRuntime, uint32_t timeout_ms)
             return -10;
         }
 
-        /* 从插件拉取一帧；超时或失败直接跳过，保持实时性。 */
+        /*
+         * 从插件拉取一帧。
+         * 这里没有重试循环，因为运行时更偏实时系统：宁可丢一帧，也不在单次 poll 中卡太久。
+         */
         if (pPlugin->ops.GetFrame(pPlugin->ctx, &meta, &pPayload,
             &payload_len, timeout_ms) != 0)
         {
@@ -206,7 +224,10 @@ int32_t PodRuntime_pollOnce(PodRuntime *pRuntime, uint32_t timeout_ms)
         pBlock = PodFramePool_acquireFree(pRuntime->pFramePools[idx]);
         if (pBlock == NULL)
         {
-            /* 当前流帧池耗尽，记录丢帧并继续处理其他流。 */
+            /*
+             * 当前流已经没有空闲块，说明下游消费速度跟不上上游产帧速度。
+             * 此时只能丢帧，但不会拖慢其他流。
+             */
             pRuntime->StreamDropCount[idx]++;
             continue;
         }
@@ -218,6 +239,7 @@ int32_t PodRuntime_pollOnce(PodRuntime *pRuntime, uint32_t timeout_ms)
             pRuntime->StreamDropCount[idx]++;
         }
 
+        /* 把插件缓冲区内容拷贝到运行时自有帧块中，实现跨模块解耦。 */
         if (pPayload != NULL && payload_len > 0u)
         {
             memcpy(pBlock->pData, pPayload, payload_len);
@@ -228,6 +250,7 @@ int32_t PodRuntime_pollOnce(PodRuntime *pRuntime, uint32_t timeout_ms)
         pBlock->FrameId = meta.frame_id;
         pBlock->StreamId = meta.stream_id;
 
+        /* ready 队列压入失败通常意味着消费者处理不过来。 */
         if (!PodFramePool_pushReady(pRuntime->pFramePools[idx], pBlock))
         {
             /* ready 队列满：记录丢帧并把帧块归还 free 队列。 */
@@ -245,6 +268,7 @@ PodFrameBlock *PodRuntime_popReady(PodRuntime *pRuntime, uint8_t stream_id)
 
     ZF_ASSERT(pRuntime != (PodRuntime *)0)
 
+    /* 运行时只负责路由到对应流的帧池。 */
     idx = StreamToIndex(stream_id);
     if (pRuntime->pFramePools[idx] == NULL)
     {
@@ -262,6 +286,7 @@ bool PodRuntime_releaseBlock(PodRuntime *pRuntime, uint8_t stream_id,
     ZF_ASSERT(pRuntime != (PodRuntime *)0)
     ZF_ASSERT(pBlock != (PodFrameBlock *)0)
 
+    /* 调用方在消费完成后必须归还，否则 free 队列会越来越少。 */
     idx = StreamToIndex(stream_id);
     if (pRuntime->pFramePools[idx] == NULL)
     {

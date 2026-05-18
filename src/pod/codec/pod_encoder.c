@@ -18,7 +18,9 @@
 
 typedef struct _PodEncoder
 {
+    /* 编码器当前配置快照。 */
     PodEncoderConfig Config;
+    /* 是否已完成 open。 */
     uint8_t IsOpened;
 } PodEncoder;
 
@@ -29,6 +31,7 @@ bool PodEncoder_create(PodEncoder **ppEncoder, const PodEncoderConfig *pConfig)
     ZF_ASSERT(ppEncoder != (PodEncoder **)0)
     ZF_ASSERT(pConfig != (PodEncoderConfig *)0)
 
+    /* 当前实现不直接创建硬件句柄，先保存配置供后续 open/encode 使用。 */
     pEncoder = (PodEncoder *)ZF_MALLOC(sizeof(PodEncoder));
     if (pEncoder == NULL)
     {
@@ -56,6 +59,7 @@ void PodEncoder_dispose(PodEncoder *pEncoder)
 int32_t PodEncoder_open(PodEncoder *pEncoder)
 {
     ZF_ASSERT(pEncoder != (PodEncoder *)0)
+    /* 真实平台里这里通常会打开编码通道或创建 session。 */
     pEncoder->IsOpened = 1u;
     return 0;
 }
@@ -63,6 +67,7 @@ int32_t PodEncoder_open(PodEncoder *pEncoder)
 int32_t PodEncoder_close(PodEncoder *pEncoder)
 {
     ZF_ASSERT(pEncoder != (PodEncoder *)0)
+    /* 这里对应释放底层编码资源。 */
     pEncoder->IsOpened = 0u;
     return 0;
 }
@@ -115,6 +120,7 @@ int32_t PodEncoder_encode(PodEncoder *pEncoder, const PodFrameBlock *pIn,
 
     if (!pEncoder->IsOpened)
     {
+        /* 避免在未初始化完成时直接编码。 */
         return -1;
     }
 
@@ -123,6 +129,7 @@ int32_t PodEncoder_encode(PodEncoder *pEncoder, const PodFrameBlock *pIn,
         return -2;
     }
 
+    /* 当前是旁路骨架实现：直接复制输入到输出，便于先打通链路。 */
     if (pIn->Length > 0u)
     {
         ZF_MEMCPY(pOut->pData, pIn->pData, pIn->Length);

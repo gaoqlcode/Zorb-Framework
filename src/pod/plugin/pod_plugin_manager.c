@@ -44,6 +44,7 @@ static PodCameraPlugin *PodPluginManager_getAt(PodPluginManager *pMgr,
     ZF_ASSERT(pMgr != (PodPluginManager *)0)
     ZF_ASSERT(pMgr->pPluginList != (List *)0)
 
+    /* List 存储的是 PodCameraPlugin*，所以这里要先拿到二级指针。 */
     ppPlugin = (PodCameraPlugin **)pMgr->pPluginList
         ->GetElementDataAt(pMgr->pPluginList, index);
     if (ppPlugin == NULL)
@@ -60,6 +61,7 @@ bool PodPluginManager_create(PodPluginManager **ppMgr)
 
     ZF_ASSERT(ppMgr != (PodPluginManager **)0)
 
+    /* 管理器本身很轻，只持有一个插件链表。 */
     pMgr = (PodPluginManager *)ZF_MALLOC(sizeof(PodPluginManager));
     if (pMgr == NULL)
     {
@@ -102,7 +104,11 @@ bool PodPluginManager_register(PodPluginManager *pMgr, PodCameraPlugin *pPlugin)
     ZF_ASSERT(pMgr->pPluginList != (List *)0)
     ZF_ASSERT(pPlugin != (PodCameraPlugin *)0)
 
-    /* 名称与 stream_id 都必须唯一，避免控制与路由歧义。 */
+    /*
+     * 名称与 stream_id 都必须唯一：
+     * - 名称重复会让控制路径混乱。
+     * - stream_id 重复会让数据路由冲突。
+     */
     if (PodPluginManager_findByName(pMgr, pPlugin->name) != NULL)
     {
         return false;
@@ -118,6 +124,7 @@ bool PodPluginManager_register(PodPluginManager *pMgr, PodCameraPlugin *pPlugin)
         return false;
     }
 
+    /* 链表节点里只保存插件指针，不复制插件对象本身。 */
     *ppData = pPlugin;
 
     if (!pMgr->pPluginList->Add(pMgr->pPluginList, pNode))
@@ -141,6 +148,7 @@ PodCameraPlugin *PodPluginManager_findByName(PodPluginManager *pMgr,
         return NULL;
     }
 
+    /* 线性遍历足够简单，适合插件数量通常不大的场景。 */
     for (i = 0; i < pMgr->pPluginList->Count; i++)
     {
         PodCameraPlugin *pPlugin = PodPluginManager_getAt(pMgr, i);
@@ -223,6 +231,7 @@ int32_t PodPluginManager_openAll(PodPluginManager *pMgr)
 
     ZF_ASSERT(pMgr != (PodPluginManager *)0)
 
+    /* open 阶段通常对应设备句柄申请、缓冲区准备等重资源动作。 */
     for (i = 0; i < pMgr->pPluginList->Count; i++)
     {
         PodCameraPlugin *pPlugin = PodPluginManager_getAt(pMgr, i);
@@ -268,6 +277,7 @@ int32_t PodPluginManager_stopAll(PodPluginManager *pMgr)
 
     ZF_ASSERT(pMgr != (PodPluginManager *)0)
 
+    /* stop 只停数据流，不一定立刻释放底层句柄。 */
     for (i = 0; i < pMgr->pPluginList->Count; i++)
     {
         PodCameraPlugin *pPlugin = PodPluginManager_getAt(pMgr, i);
@@ -290,6 +300,7 @@ int32_t PodPluginManager_closeAll(PodPluginManager *pMgr)
 
     ZF_ASSERT(pMgr != (PodPluginManager *)0)
 
+    /* close 阶段释放设备与句柄资源，通常是 stop 之后的收尾动作。 */
     for (i = 0; i < pMgr->pPluginList->Count; i++)
     {
         PodCameraPlugin *pPlugin = PodPluginManager_getAt(pMgr, i);

@@ -48,6 +48,7 @@ typedef struct _PodAdaptiveRate
 
 static uint32_t ClampU32(uint32_t v, uint32_t min_v, uint32_t max_v)
 {
+    /* 限幅函数用于防止调整后的码率跑出安全区间。 */
     if (v < min_v)
     {
         return min_v;
@@ -61,6 +62,7 @@ static uint32_t ClampU32(uint32_t v, uint32_t min_v, uint32_t max_v)
 
 static void TryApply(PodAdaptiveRate *pCtrl)
 {
+    /* 策略层只负责算结果，真正下发给谁由回调决定。 */
     if (pCtrl->ApplyHook != NULL)
     {
         (void)pCtrl->ApplyHook(pCtrl->Config.StreamId,
@@ -76,6 +78,7 @@ bool PodAdaptiveRate_create(PodAdaptiveRate **ppCtrl,
     ZF_ASSERT(ppCtrl != (PodAdaptiveRate **)0)
     ZF_ASSERT(pConfig != (PodAdaptiveRateConfig *)0)
 
+    /* 这些约束保证控制器一创建就处于可计算状态。 */
     if (pConfig->MinBitrateKbps == 0u || pConfig->MaxBitrateKbps == 0u
         || pConfig->MinBitrateKbps > pConfig->MaxBitrateKbps
         || pConfig->WindowMs == 0u)
@@ -94,6 +97,7 @@ bool PodAdaptiveRate_create(PodAdaptiveRate **ppCtrl,
     pCtrl->Config = *pConfig;
     pCtrl->CurrentBitrateKbps = ClampU32(pConfig->InitBitrateKbps,
         pConfig->MinBitrateKbps, pConfig->MaxBitrateKbps);
+    /* 默认从正常 GOP 开始，出现持续丢包再拉长。 */
     pCtrl->CurrentGop = 30u;
 
     pCtrl->WindowStartUs = PodPlatform_monotonicUs();
@@ -144,6 +148,7 @@ void PodAdaptiveRate_udpDropHook(uint8_t stream_id, uint32_t frame_id,
         return;
     }
 
+    /* 当前策略先按“事件次数”统计，不区分一次事件里丢了多少包。 */
     pCtrl->WindowDropEvents++;
 }
 
@@ -160,6 +165,7 @@ void PodAdaptiveRate_tick(PodAdaptiveRate *pCtrl)
         return;
     }
 
+    /* 单位换算到毫秒后再和窗口参数比较，避免接口层混用单位。 */
     elapsed_ms = (now_us - pCtrl->WindowStartUs) / 1000u;
     /* 未到窗口边界时不做决策，保持控制回路稳定。 */
     if (elapsed_ms < pCtrl->Config.WindowMs)
@@ -170,6 +176,7 @@ void PodAdaptiveRate_tick(PodAdaptiveRate *pCtrl)
     /* 丢包超阈值：快速降码率并拉长 GOP，优先保连通性。 */
     if (pCtrl->WindowDropEvents >= pCtrl->Config.DropThreshold)
     {
+        /* 按百分比下降，而不是固定值下降，便于适配不同码率区间。 */
         uint32_t down = pCtrl->CurrentBitrateKbps
             * (uint32_t)pCtrl->Config.StepDownPercent / 100u;
         if (down == 0u)
@@ -190,6 +197,7 @@ void PodAdaptiveRate_tick(PodAdaptiveRate *pCtrl)
         uint64_t cool_ms = (now_us - pCtrl->LastAdjustUs) / 1000u;
         if (cool_ms >= pCtrl->Config.CooldownMs)
         {
+            /* 升码率比降码率更保守，避免网络刚恢复就再次拥塞。 */
             uint32_t up = pCtrl->CurrentBitrateKbps
                 * (uint32_t)pCtrl->Config.StepUpPercent / 100u;
             if (up == 0u)
@@ -206,6 +214,7 @@ void PodAdaptiveRate_tick(PodAdaptiveRate *pCtrl)
         }
     }
 
+    /* 窗口结束后清零统计，开始下一轮观测。 */
     pCtrl->WindowDropEvents = 0u;
     pCtrl->WindowStartUs = now_us;
 }

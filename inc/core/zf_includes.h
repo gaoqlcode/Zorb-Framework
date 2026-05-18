@@ -22,6 +22,12 @@
 extern "C" {
 #endif
 
+/*
+ * 这是面向使用者的聚合头文件。
+ * 如果你只是想“把框架能力一次性包含进来”，直接包含它最省事；
+ * 如果你想学习模块边界，建议继续分别阅读各个头文件。
+ */
+
 #if __has_include("zf_debug.h")
 #include "zf_debug.h"
 #else
@@ -41,7 +47,10 @@ extern "C" {
 #include "zf_timer.h"
 #include "zf_task.h"
 
-/* 吊舱多相机项目可复用模块 */
+/*
+ * 下面这组头文件属于吊舱多相机业务层。
+ * 它们建立在 core 层之上，复用了链表、事件、定时器、任务等通用能力。
+ */
 #include "../pod/plugin/pod_camera_plugin.h"
 #include "../pod/plugin/pod_plugin_manager.h"
 #include "../pod/data/pod_perf_queue.h"

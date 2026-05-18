@@ -25,7 +25,10 @@ extern "C" {
 #include "stdbool.h"
 #include "stdint.h"
 
-/* 列表节点结构 */
+/*
+ * ListNode 是最基础的链表节点。
+ * 这个项目里很多模块都依赖它，例如任务、事件、插件管理器。
+ */
 typedef struct _ListNode
 {
     bool IsExternData;          /* 是否外部数据，是则销毁时不释放 */
@@ -34,7 +37,10 @@ typedef struct _ListNode
     struct _ListNode *Next;     /* 指向下一个节点 */
 } ListNode;
 
-/* 列表结构 */
+/*
+ * List 是一个简单单向链表容器。
+ * 设计重点不是极致性能，而是让嵌入式场景下的数据组织保持统一。
+ */
 typedef struct _List
 {
     ListNode *pRootNode;        /* 指向根节点数据 */
@@ -81,7 +87,7 @@ typedef struct _List
     bool (*Dispose)(struct _List * const pList);
 } List;
 
-/* 创建列表(内部分配空间) */
+/* 创建列表(内部分配空间)。 */
 bool List_create(List **ppList);
 
 /* 在尾端增加节点 */
@@ -124,10 +130,10 @@ bool List_clear(List * const pList);
 /* 释放列表(内部释放空间) */
 bool List_dispose(List * const pList);
 
-/* 创建节点(内部分配空间，size=0表示使用外部数据) */
+/* 创建节点(内部分配空间，size=0 表示使用外部数据)。 */
 bool List_mallocNode(ListNode **ppNode, void **ppData, uint32_t size);
 
-/* 释放节点(不释放外部创建的数据) */
+/* 释放节点(不释放外部创建的数据)。 */
 bool List_freeNode(ListNode *pNode);
 
 #ifdef __cplusplus

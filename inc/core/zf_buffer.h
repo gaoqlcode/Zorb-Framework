@@ -25,7 +25,10 @@ extern "C" {
 #include "stdbool.h"
 #include "stdint.h"
 
-/* 环形缓冲区数据结构 */
+/*
+ * RingBuffer 适合处理串口、网络流、日志流这类“持续写入、持续读出”的字节流。
+ * Head 指向写入位置，Trail 指向读取位置，Count 表示当前有效字节数。
+ */
 typedef struct _RingBuffer
 {
     bool IsExternBuffer;  /* 是否外部缓冲区，是则销毁时不释放 */
@@ -68,7 +71,7 @@ typedef struct _RingBuffer
     bool (*Dispose)(struct _RingBuffer * const pRb);
 } RingBuffer;
 
-/* 创建缓冲器(内部分配空间，size=0表示使用外部数据) */
+/* 创建缓冲器(内部分配空间，size=0 表示使用外部数据)。 */
 bool RB_create(RingBuffer **ppRb, uint32_t size);
 
 /* 缓冲器是否已满 */
@@ -89,7 +92,7 @@ bool RB_getByte(RingBuffer * const pRb, uint8_t *pByte);
 /* 读取缓冲器已使用字节个数 */
 uint32_t RB_getCount(RingBuffer * const pRb);
 
-/* 读取n个字节(n超过最大数据数时全部读出) */
+/* 读取 n 个字节(n 超过最大数据数时全部读出)。 */
 uint32_t RB_readBytes(RingBuffer * const pRb, uint8_t *pArray, uint32_t n);
 
 /* 丢弃n个字节(n超过最大数据数时全部丢弃) */

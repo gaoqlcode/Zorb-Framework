@@ -26,7 +26,7 @@ extern "C" {
 #include "stdbool.h"
 #include "zf_list.h"
 
-/* 状态机信号0-31保留，用户信号在32以后定义 */
+/* 状态机信号 0-31 保留，用户信号从 32 开始。 */
 enum {
     FSM_NULL_SIG = 0,
     FSM_ENTER_SIG,
@@ -41,7 +41,11 @@ typedef uint32_t FsmSignal;
 
 typedef void (*IFsmState)(Fsm * const, FsmSignal const);
 
-/* 状态机结构 */
+/*
+ * Fsm 支持父子状态机层级。
+ * 学习时可以先只关注 CurrentState、Dispatch、Transfer 三个核心点，
+ * 等理解了单状态机流程，再看 Owner/ChildList 处理分层状态机。
+ */
 struct _Fsm
 {
     uint8_t Level;                  /* 嵌套层数，根状态机层数为1，子状态机层数自增 */
@@ -90,7 +94,7 @@ struct _Fsm
     void (*TransferWithEvent)(Fsm * const pFsm, IFsmState nextState);
 };
 
-/* 创建状态机(内部分配空间) */
+/* 创建状态机(内部分配空间)。 */
 bool Fsm_create(Fsm ** ppFsm);
 
 /* 设置初始状态 */
@@ -126,7 +130,7 @@ bool Fsm_dispatch(Fsm * const pFsm, FsmSignal const signal);
 /* 状态转移 */
 void Fsm_transfer(Fsm * const pFsm, IFsmState nextState);
 
-/* 状态转移(触发转出和转入事件) */
+/* 状态转移(触发转出和转入事件)。 */
 void Fsm_transferWithEvent(Fsm * const pFsm, IFsmState nextState);
 
 #ifdef __cplusplus

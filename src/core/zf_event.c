@@ -4,13 +4,13 @@
   * @author  Zorb
   * @version V1.0.0
   * @date    2018-06-28
-  * @brief   ÊÂ¼şºÍÊÂ¼ş´¦ÀíÆ÷µÄÊµÏÖ
+ * @brief   äº‹ä»¶ä¸äº‹ä»¶å¤„ç†å™¨å®ç°
   *****************************************************************************
   * @history
   *
   * 1. Date:2018-06-28
   *    Author:Zorb
-  *    Modification:½¨Á¢ÎÄ¼ş
+    *    Modification:å»ºç«‹æ–‡ä»¶
   *
   *****************************************************************************
   */
@@ -22,10 +22,8 @@
 #include "zf_critical.h"
 
 /******************************************************************************
- * ÃèÊö  £º´´½¨ÊÂ¼ş
- * ²ÎÊı  £º(out)-ppEvent  ÊÂ¼şÖ¸ÕëµÄÖ¸Õë
- * ·µ»Ø  £º-true          ³É¹¦
- *         -false         Ê§°Ü
+ * åŠŸèƒ½  åˆ›å»ºäº‹ä»¶
+ * è¯´æ˜  åˆ›å»ºåé»˜è®¤æ²¡æœ‰å‚æ•°ã€æ²¡æœ‰å¤„ç†å‡½æ•°ï¼Œè°ƒç”¨æ–¹å†è¡¥å……å†…å®¹ã€‚
 ******************************************************************************/
 bool Event_create(Event **ppEvent)
 {
@@ -33,7 +31,7 @@ bool Event_create(Event **ppEvent)
     
     ZF_ASSERT(ppEvent != (Event **)0)
     
-    /* ·ÖÅä¿Õ¼ä */
+    /* ä¸ºäº‹ä»¶å¯¹è±¡åˆ†é…å†…å­˜ã€‚ */
     pEvent = ZF_MALLOC(sizeof(Event));
     if (pEvent == NULL)
     {
@@ -41,28 +39,24 @@ bool Event_create(Event **ppEvent)
         return false;
     }
     
-    /* ³õÊ¼»¯³ÉÔ± */
+    /* åˆå§‹åŒ–é»˜è®¤æˆå‘˜ã€‚ */
     pEvent->Priority = EVENT_LOWEST_PRIORITY;
     pEvent->EventProcess = NULL;
     pEvent->pArgList = NULL;
     
-    /* ³õÊ¼»¯·½·¨ */
+    /* ç»‘å®šäº‹ä»¶å¯¹è±¡çš„æ–¹æ³•è¡¨ã€‚ */
     pEvent->AddArg = Event_addArg;
     pEvent->Dispose = Event_Dispose;
     
-    /* Êä³ö */
+    /* ï¿½ï¿½ï¿½ */
     *ppEvent = pEvent;
     
     return true;
 }
 
 /******************************************************************************
- * ÃèÊö  £ºÔö¼ÓÊÂ¼ş²ÎÊı(Éî¿½±´£¬°´ÏÈºóË³ĞòÈë¶ÓÁĞ)
- * ²ÎÊı  £º(in)-pEvent  ÊÂ¼şÖ¸Õë
- *         (in)-pArg    ÒªÔö¼ÓµÄ²ÎÊı
- *         (in)-size    ÒªÔö¼ÓµÄ´óĞ¡
- * ·µ»Ø  £º-true        ³É¹¦
- *         -false       Ê§°Ü
+ * åŠŸèƒ½  ç»™äº‹ä»¶è¿½åŠ å‚æ•°
+ * è¯´æ˜  è¿™é‡Œåšæ·±æ‹·è´ï¼Œå› æ­¤è°ƒç”¨æ–¹ä¼ å…¥çš„ä¸´æ—¶å˜é‡åœ¨å‡½æ•°è¿”å›åä¹Ÿå®‰å…¨ã€‚
 ******************************************************************************/
 bool Event_addArg(Event * const pEvent, void *pArg, uint32_t size)
 {
@@ -73,7 +67,7 @@ bool Event_addArg(Event * const pEvent, void *pArg, uint32_t size)
     ZF_ASSERT(pArg != (void *)0)
     ZF_ASSERT(size > 0)
     
-    /* ´´½¨²ÎÊıÁĞ±í */
+    /* é¦–æ¬¡è¿½åŠ å‚æ•°æ—¶å†åˆ›å»ºå‚æ•°é“¾è¡¨ã€‚ */
     if (pEvent->pArgList == NULL)
     {
         List_create(&pEvent->pArgList);
@@ -86,7 +80,7 @@ bool Event_addArg(Event * const pEvent, void *pArg, uint32_t size)
         }
     }
     
-    /* ´´½¨²ÎÊı½Úµã */
+    /* ä¸ºæœ¬æ¬¡å‚æ•°åˆ›å»ºä¸€ä¸ªç‹¬ç«‹èŠ‚ç‚¹ã€‚ */
     if (!List_mallocNode(&pNode, &pData, size))
     {
         ZF_DEBUG(LOG_E, "malloc event arg node space error\r\n");
@@ -94,10 +88,10 @@ bool Event_addArg(Event * const pEvent, void *pArg, uint32_t size)
         return false;
     }
     
-    /* Éî¿½±´²ÎÊıÊı¾İ */
+    /* æ·±æ‹·è´å‚æ•°å†…å®¹ã€‚ */
     ZF_MEMCPY(pData, pArg, size);
     
-    /* Ìí¼Óµ½²ÎÊıÁĞ±í */
+    /* æŠŠæ–°å‚æ•°è¿½åŠ åˆ°äº‹ä»¶å‚æ•°é“¾è¡¨å°¾éƒ¨ã€‚ */
     if (!pEvent->pArgList->Add(pEvent->pArgList, pNode))
     {
         ZF_DEBUG(LOG_E, "add event arg node into event arg list error\r\n");
@@ -109,16 +103,14 @@ bool Event_addArg(Event * const pEvent, void *pArg, uint32_t size)
 }
 
 /******************************************************************************
- * ÃèÊö  £ºÏú»ÙÊÂ¼ş(³ÌĞò²ÎÊıÒ²Í¬²½Ïú»Ù)
- * ²ÎÊı  £º(in)-pEvent  ÊÂ¼şÖ¸Õë
- * ·µ»Ø  £º-true        ³É¹¦
- *         -false       Ê§°Ü
+ * åŠŸèƒ½  é”€æ¯äº‹ä»¶
+ * è¯´æ˜  äº‹ä»¶å‚æ•°é“¾è¡¨ä¹Ÿä¼šä¸€å¹¶é‡Šæ”¾ã€‚
 ******************************************************************************/
 bool Event_Dispose(Event * const pEvent)
 {
     ZF_ASSERT(pEvent != (Event *)0)
     
-    /* Ïú»Ù²ÎÊıÁĞ±í */
+    /* é‡Šæ”¾äº‹ä»¶å†…éƒ¨å‚æ•°é“¾è¡¨ã€‚ */
     if (pEvent->pArgList != NULL)
     {
         pEvent->pArgList->Dispose(pEvent->pArgList);
@@ -130,10 +122,8 @@ bool Event_Dispose(Event * const pEvent)
 }
 
 /******************************************************************************
- * ÃèÊö  £º´´½¨ÊÂ¼ş´¦ÀíÆ÷
- * ²ÎÊı  £º(out)-ppEventHandler  ÊÂ¼ş´¦ÀíÆ÷Ö¸ÕëµÄÖ¸Õë
- * ·µ»Ø  £º-true                 ³É¹¦
- *         -false                Ê§°Ü
+ * åŠŸèƒ½  åˆ›å»ºäº‹ä»¶å¤„ç†å™¨
+ * è¯´æ˜  å¤„ç†å™¨åªç®¡ç†é˜Ÿåˆ—ï¼Œä¸ç›´æ¥å†³å®šåœ¨å“ªä¸ªçº¿ç¨‹æˆ–ä»»åŠ¡ä¸Šä¸‹æ–‡æ‰§è¡Œã€‚
 ******************************************************************************/
 bool EventHandler_create(EventHandler **ppEventHandler)
 {
@@ -141,7 +131,7 @@ bool EventHandler_create(EventHandler **ppEventHandler)
     
     ZF_ASSERT(ppEventHandler != (EventHandler **)0)
     
-    /* ·ÖÅä¿Õ¼ä */
+    /* ä¸ºäº‹ä»¶å¤„ç†å™¨å¯¹è±¡åˆ†é…å†…å­˜ã€‚ */
     pEventHandler = ZF_MALLOC(sizeof(EventHandler));
     if (pEventHandler == NULL)
     {
@@ -149,11 +139,11 @@ bool EventHandler_create(EventHandler **ppEventHandler)
         return false;
     }
     
-    /* ³õÊ¼»¯³ÉÔ± */
+    /* åˆå§‹åŒ–ä¸ºç©ºé˜Ÿåˆ—ä¸”é»˜è®¤å…è®¸è¿è¡Œã€‚ */
     pEventHandler->pEventList = NULL;
     pEventHandler->IsRunning = true;
     
-    /* ³õÊ¼»¯·½·¨ */
+    /* ç»‘å®šäº‹ä»¶å¤„ç†å™¨çš„æ–¹æ³•è¡¨ã€‚ */
     pEventHandler->GetEventCount = EventHandler_getEventCount;
     pEventHandler->Add = EventHandler_add;
     pEventHandler->Delete = EventHandler_delete;
@@ -161,16 +151,14 @@ bool EventHandler_create(EventHandler **ppEventHandler)
     pEventHandler->Dispose = EventHandler_dispose;
     pEventHandler->Execute = EventHandler_execute;
     
-    /* Êä³ö */
+    /* ï¿½ï¿½ï¿½ */
     *ppEventHandler = pEventHandler;
     
     return true;
 }
 
 /******************************************************************************
- * ÃèÊö  £º»ñÈ¡ÊÂ¼şÊı
- * ²ÎÊı  £º(in)-pEventHandler  ÊÂ¼ş´¦ÀíÆ÷Ö¸Õë
- * ·µ»Ø  £ºÊÂ¼şÊı
+ * åŠŸèƒ½  è·å–äº‹ä»¶æ•°
 ******************************************************************************/
 uint32_t EventHandler_getEventCount(EventHandler * const pEventHandler)
 {
@@ -187,25 +175,22 @@ uint32_t EventHandler_getEventCount(EventHandler * const pEventHandler)
 }
 
 /******************************************************************************
- * ÃèÊö  £ºÔö¼ÓÊÂ¼ş(°´ÓÅÏÈ¼¶ÅÅĞò)
- * ²ÎÊı  £º(in)-pEventHandler  ÊÂ¼ş´¦ÀíÆ÷Ö¸Õë
- *         (in)-pEvent         ÊÂ¼şÖ¸Õë
- * ·µ»Ø  £º-true               ³É¹¦
- *         -false              Ê§°Ü
+ * åŠŸèƒ½  æ·»åŠ äº‹ä»¶
+ * è¯´æ˜  äº‹ä»¶æŒ‰ä¼˜å…ˆçº§æ’å…¥ï¼Œä¼˜å…ˆçº§è¶Šé«˜è¶Šé å‰ã€‚
 ******************************************************************************/
 bool EventHandler_add(EventHandler * const pEventHandler, Event *pEvent)
 {
-    /* SR±äÁ¿ */
+    /* ä¿å­˜å¹¶æ¢å¤ä¸­æ–­ä¸Šä¸‹æ–‡çš„å±€éƒ¨å˜é‡ã€‚ */
     ZF_SR_VAL();
     
     ListNode *pNode;
     uint32_t i;
-    uint32_t index; /* ²åÈëÊÂ¼şÎ»ÖÃË÷Òı */
+    uint32_t index; /* æ–°äº‹ä»¶åº”æ’å…¥çš„ä½ç½®ã€‚ */
     
     ZF_ASSERT(pEventHandler != (EventHandler *)0)
     ZF_ASSERT(pEvent != (Event *)0)
     
-    /* ´´½¨ÊÂ¼şÁĞ±í */
+    /* é¦–æ¬¡æŠ•é€’äº‹ä»¶æ—¶å†åˆå§‹åŒ–äº‹ä»¶é“¾è¡¨ã€‚ */
     if (pEventHandler->pEventList == NULL)
     {
         List_create(&pEventHandler->pEventList);
@@ -218,7 +203,7 @@ bool EventHandler_add(EventHandler * const pEventHandler, Event *pEvent)
         }
     }
     
-    /* ´´½¨ÊÂ¼ş½Úµã */
+    /* ä¸ºäº‹ä»¶æœ¬èº«åˆ›å»ºä¸€ä¸ªé“¾è¡¨èŠ‚ç‚¹ã€‚ */
     if (!List_mallocNode(&pNode, NULL, 0))
     {
         ZF_DEBUG(LOG_E, "malloc event node space error\r\n");
@@ -229,7 +214,7 @@ bool EventHandler_add(EventHandler * const pEventHandler, Event *pEvent)
     pNode->pData = (void *)pEvent;
     pNode->Size = sizeof(Event);
     
-    /* °´ÓÅÏÈ¼¶ÅÅĞò */
+    /* æ‰¾åˆ°åº”æ’å…¥çš„ä½ç½®ï¼Œä¿è¯é“¾è¡¨æŒ‰ä¼˜å…ˆçº§å‡åºæ’åˆ—ã€‚ */
     index = pEventHandler->pEventList->Count;
     
     for (i = 0; i < pEventHandler->pEventList->Count; i++)
@@ -242,37 +227,34 @@ bool EventHandler_add(EventHandler * const pEventHandler, Event *pEvent)
         }
     }
     
-    /* ½øÈëÁÙ½çÇø */
+    /* è¿›å…¥ä¸´ç•ŒåŒºï¼Œå®‰å…¨åœ°ä¿®æ”¹äº‹ä»¶é˜Ÿåˆ—ã€‚ */
     ZF_CRITICAL_ENTER();
     
-    /* Ìí¼Óµ½ÊÂ¼şÁĞ±í */
+    /* ï¿½ï¿½ï¿½Óµï¿½ï¿½Â¼ï¿½ï¿½Ğ±ï¿½ */
     if (!pEventHandler->pEventList
         ->AddElementAt(pEventHandler->pEventList, index, pNode))
     {
         ZF_DEBUG(LOG_E, "add event node into event list error\r\n");
         
-        /* ÍË³öÁÙ½çÇø */
+        /* å‡ºé”™æ—¶å…ˆé€€å‡ºä¸´ç•ŒåŒºã€‚ */
         ZF_CRITICAL_EXIT();
         
         return false;
     }
     
-    /* ÍË³öÁÙ½çÇø */
+    /* é€€å‡ºä¸´ç•ŒåŒºã€‚ */
     ZF_CRITICAL_EXIT();
     
     return true;
 }
 
 /******************************************************************************
- * ÃèÊö  £ºÉ¾³ıÊÂ¼ş(ÊÍ·Å¿Õ¼ä)
- * ²ÎÊı  £º(in)-pEventHandler  ÊÂ¼ş´¦ÀíÆ÷Ö¸Õë
- *         (in)-pEvent         ÊÂ¼şÖ¸Õë
- * ·µ»Ø  £º-true               ³É¹¦
- *         -false              Ê§°Ü
+ * åŠŸèƒ½  åˆ é™¤äº‹ä»¶
+ * è¯´æ˜  ä»é˜Ÿåˆ—ç§»é™¤åï¼Œè¿˜ä¼šé‡Šæ”¾äº‹ä»¶æœ¬èº«ã€‚
 ******************************************************************************/
 bool EventHandler_delete(EventHandler * const pEventHandler, Event *pEvent)
 {
-    /* SR±äÁ¿ */
+    /* ä¿å­˜å¹¶æ¢å¤ä¸­æ–­ä¸Šä¸‹æ–‡çš„å±€éƒ¨å˜é‡ã€‚ */
     ZF_SR_VAL();
     
     ListNode *pNode;
@@ -286,10 +268,10 @@ bool EventHandler_delete(EventHandler * const pEventHandler, Event *pEvent)
         return false;
     }
     
-    /* ½øÈëÁÙ½çÇø */
+    /* è¿›å…¥ä¸´ç•ŒåŒºï¼Œå®‰å…¨åœ°åˆ é™¤ç›®æ ‡äº‹ä»¶ã€‚ */
     ZF_CRITICAL_ENTER();
     
-    /* ÒÆ³ıÊÂ¼ş */
+    /* ï¿½Æ³ï¿½ï¿½Â¼ï¿½ */
     while(pEventHandler->pEventList
         ->GetElementByData(pEventHandler->pEventList, pEvent, &pNode))
     {
@@ -306,7 +288,7 @@ bool EventHandler_delete(EventHandler * const pEventHandler, Event *pEvent)
         }
     }
     
-    /* ÍË³öÁÙ½çÇø */
+    /* é€€å‡ºä¸´ç•ŒåŒºã€‚ */
     ZF_CRITICAL_EXIT();
     
     pEvent->Dispose(pEvent);
@@ -315,17 +297,15 @@ bool EventHandler_delete(EventHandler * const pEventHandler, Event *pEvent)
 }
 
 /******************************************************************************
- * ÃèÊö  £ºÇå¿ÕÊÂ¼şÁĞ±í(ÊÍ·Å¿Õ¼ä)
- * ²ÎÊı  £º(in)-pEventHandler  ÊÂ¼ş´¦ÀíÆ÷Ö¸Õë
- * ·µ»Ø  £º-true               ³É¹¦
- *         -false              Ê§°Ü
+ * åŠŸèƒ½  æ¸…ç©ºäº‹ä»¶åˆ—è¡¨
+ * è¯´æ˜  ä¼šé€ä¸ªé‡Šæ”¾äº‹ä»¶å¯¹è±¡ï¼Œç„¶åå†æ¸…ç©ºé“¾è¡¨èŠ‚ç‚¹ã€‚
 ******************************************************************************/
 bool EventHandler_clear(EventHandler * const pEventHandler)
 {
-    /* SR±äÁ¿ */
+    /* ä¿å­˜å¹¶æ¢å¤ä¸­æ–­ä¸Šä¸‹æ–‡çš„å±€éƒ¨å˜é‡ã€‚ */
     ZF_SR_VAL();
     
-    /* ·µ»Ø½á¹û */
+    /* ï¿½ï¿½ï¿½Ø½ï¿½ï¿½ */
     bool res = true;
     
     uint32_t i;
@@ -339,12 +319,12 @@ bool EventHandler_clear(EventHandler * const pEventHandler)
         return true;
     }
     
-    /* ½øÈëÁÙ½çÇø */
+    /* è¿›å…¥ä¸´ç•ŒåŒºï¼Œé¿å…æ¸…ç©ºè¿‡ç¨‹ä¸­è¢«å…¶ä»–ä¸Šä¸‹æ–‡å¹¶å‘ä¿®æ”¹ã€‚ */
     ZF_CRITICAL_ENTER();
     
     for (i = 0; i < pEventHandler->pEventList->Count; i++)
     {
-        /* ÊÍ·ÅËùÓĞÊÂ¼ş */
+        /* å…ˆé‡Šæ”¾äº‹ä»¶å¯¹è±¡æœ¬èº«ã€‚ */
         pEvent = (Event *)pEventHandler->pEventList
             ->GetElementDataAt(pEventHandler->pEventList, i);
         
@@ -353,36 +333,34 @@ bool EventHandler_clear(EventHandler * const pEventHandler)
     
     res = pEventHandler->pEventList->Clear(pEventHandler->pEventList);
     
-    /* ÍË³öÁÙ½çÇø */
+    /* é€€å‡ºä¸´ç•ŒåŒºã€‚ */
     ZF_CRITICAL_EXIT();
     
     return res;
 }
 
 /******************************************************************************
- * ÃèÊö  £ºÏú»ÙÊÂ¼ş´¦ÀíÆ÷(ÊÍ·Å¿Õ¼ä)
- * ²ÎÊı  £º(in)-pEventHandler  ÊÂ¼ş´¦ÀíÆ÷Ö¸Õë
- * ·µ»Ø  £º-true               ³É¹¦
- *         -false              Ê§°Ü
+ * åŠŸèƒ½  é”€æ¯äº‹ä»¶å¤„ç†å™¨
+ * è¯´æ˜  å…ˆæ¸…ç©ºå¾…å¤„ç†äº‹ä»¶ï¼Œå†é‡Šæ”¾äº‹ä»¶é“¾è¡¨å®¹å™¨å’Œå¤„ç†å™¨è‡ªèº«ã€‚
 ******************************************************************************/
 bool EventHandler_dispose(EventHandler * const pEventHandler)
 {
-    /* SR±äÁ¿ */
+    /* ä¿å­˜å¹¶æ¢å¤ä¸­æ–­ä¸Šä¸‹æ–‡çš„å±€éƒ¨å˜é‡ã€‚ */
     ZF_SR_VAL();
     
     ZF_ASSERT(pEventHandler != (EventHandler *)0)
     
-    /* ½øÈëÁÙ½çÇø */
+    /* ä¸´ç•ŒåŒºå†…å¤„ç†æ”¶å°¾ï¼Œé¿å…é˜Ÿåˆ—è¢«å¹¶å‘è®¿é—®ã€‚ */
     ZF_CRITICAL_ENTER();
     
-    /* Çå¿ÕÊÂ¼şÁĞ±í(ÊÍ·Å¿Õ¼ä) */
+    /* æ¸…ç©ºæ‰€æœ‰å¾…å¤„ç†äº‹ä»¶ã€‚ */
     EventHandler_clear(pEventHandler);
     
     pEventHandler->pEventList->Dispose(pEventHandler->pEventList);
     
     pEventHandler->pEventList = NULL;
     
-    /* ÍË³öÁÙ½çÇø */
+    /* é€€å‡ºä¸´ç•ŒåŒºã€‚ */
     ZF_CRITICAL_EXIT();
     
     ZF_FREE(pEventHandler);
@@ -391,39 +369,38 @@ bool EventHandler_dispose(EventHandler * const pEventHandler)
 }
 
 /******************************************************************************
- * ÃèÊö  £ºÖ´ĞĞÊÂ¼ş(°´ÁĞ±íÎ»ÖÃ)
- * ²ÎÊı  £º(in)-pEventHandler  ÊÂ¼ş´¦ÀíÆ÷Ö¸Õë
- * ·µ»Ø  £ºÎŞ
+ * åŠŸèƒ½  æ‰§è¡Œä¸€ä¸ªäº‹ä»¶
+ * è¯´æ˜  æ¯æ¬¡åªå–é˜Ÿå¤´ä¸€ä¸ªäº‹ä»¶æ‰§è¡Œï¼Œæ‰§è¡Œå®Œç«‹å³åˆ é™¤ã€‚
 ******************************************************************************/
 void EventHandler_execute(EventHandler * const pEventHandler)
 {
-    /* SR±äÁ¿ */
+     /* ä¿å­˜å¹¶æ¢å¤ä¸­æ–­ä¸Šä¸‹æ–‡çš„å±€éƒ¨å˜é‡ã€‚ */
     ZF_SR_VAL();
     
     Event *pEvent;
     
     ZF_ASSERT(pEventHandler != (EventHandler *)0)
     
-    /* Ã»ÓĞÔËĞĞÔòÍË³ö */
+    /* å¤„ç†å™¨è¢«æš‚åœæ—¶ä¸æ‰§è¡Œä»»ä½•äº‹ä»¶ã€‚ */
     if (!pEventHandler->IsRunning)
     {
         return;
     }
     
-    /* Ã»ÓĞÊÂ¼şÔòÍË³ö */
+    /* æ²¡æœ‰å¾…å¤„ç†äº‹ä»¶æ—¶ç›´æ¥è¿”å›ã€‚ */
     if (pEventHandler->pEventList == NULL 
         || pEventHandler->pEventList->Count == 0)
     {
         return;
     }
     
-    /* ½øÈëÁÙ½çÇø */
+    /* ä¸´ç•ŒåŒºé‡Œåªåšå–é˜Ÿå¤´åŠ¨ä½œï¼Œé¿å…æ‰§è¡Œç”¨æˆ·å›è°ƒæ—¶é•¿æœŸå…³ä¸­æ–­ã€‚ */
     ZF_CRITICAL_ENTER();
     
     pEvent = (Event *)pEventHandler->pEventList
         ->GetElementDataAt(pEventHandler->pEventList, 0);
     
-    /* ÍË³öÁÙ½çÇø */
+    /* é€€å‡ºä¸´ç•ŒåŒºï¼Œå†æ‰§è¡ŒçœŸå®å›è°ƒã€‚ */
     ZF_CRITICAL_EXIT();
     
     if (pEvent == NULL || pEvent->EventProcess == NULL)
@@ -432,10 +409,11 @@ void EventHandler_execute(EventHandler * const pEventHandler)
         while(1);
     }
     
+    /* å…ˆæ‰§è¡Œäº‹ä»¶é€»è¾‘ï¼Œå†æŠŠè¯¥äº‹ä»¶ä»é˜Ÿåˆ—ä¸­åˆ é™¤ã€‚ */
     pEvent->EventProcess(pEvent->pArgList);
     
     EventHandler_delete(pEventHandler, pEvent);
 }
 
-/******************************** ÎÄ¼ş½áÊø ********************************/
+/******************************** æ–‡ä»¶ç»“æŸ ********************************/
 

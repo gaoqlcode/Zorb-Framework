@@ -24,10 +24,13 @@
 
 typedef struct _PodFramePool
 {
+    /* 连续的块描述符数组。 */
     PodFrameBlock *pBlocks;
+    /* 实际承载帧数据的原始大块内存。 */
     uint8_t *pRaw;
     uint32_t BlockCount;
     uint32_t BlockSize;
+    /* free 队列给生产者用，ready 队列给消费者用。 */
     PodSpscQueue *pFreeQueue;
     PodSpscQueue *pReadyQueue;
 } PodFramePool;
@@ -36,6 +39,7 @@ static bool FramePool_fillFreeQueue(PodFramePool *pPool)
 {
     uint32_t i;
 
+    /* 初始化时把全部帧块都放进 free 队列，代表“全部可写”。 */
     for (i = 0; i < pPool->BlockCount; i++)
     {
         if (!PodSpscQueue_push(pPool->pFreeQueue, (void *)&pPool->pBlocks[i]))
@@ -55,6 +59,7 @@ bool PodFramePool_create(PodFramePool **ppPool, uint32_t block_count_pow2,
 
     ZF_ASSERT(ppPool != (PodFramePool **)0)
 
+    /* 参数检查里最关键的是 block_count 必须为 2 的幂。 */
     if (block_size == 0u || block_count_pow2 < 2u
         || (block_count_pow2 & (block_count_pow2 - 1u)) != 0u)
     {
@@ -69,6 +74,12 @@ bool PodFramePool_create(PodFramePool **ppPool, uint32_t block_count_pow2,
         return false;
     }
 
+    /*
+     * 这里采用“两段式内存”：
+     * 1. pBlocks 保存元数据。
+     * 2. pRaw 保存真实字节流。
+     * 这样既方便按块管理，也能保持数据区域连续。
+     */
     pPool->pBlocks = (PodFrameBlock *)ZF_MALLOC(sizeof(PodFrameBlock)
         * block_count_pow2);
     pPool->pRaw = (uint8_t *)ZF_MALLOC(block_count_pow2 * block_size);
@@ -93,6 +104,10 @@ bool PodFramePool_create(PodFramePool **ppPool, uint32_t block_count_pow2,
     pPool->pFreeQueue = NULL;
     pPool->pReadyQueue = NULL;
 
+    /*
+     * free/ready 都是单生产者单消费者队列。
+     * 这种结构很适合“采集线程写、编码/发送线程读”的流水线。
+     */
     if (!PodSpscQueue_create(&pPool->pFreeQueue, block_count_pow2)
         || !PodSpscQueue_create(&pPool->pReadyQueue, block_count_pow2))
     {
@@ -111,6 +126,7 @@ bool PodFramePool_create(PodFramePool **ppPool, uint32_t block_count_pow2,
         return false;
     }
 
+    /* 为每个块建立元数据与 pRaw 中实际数据区的映射。 */
     for (i = 0; i < block_count_pow2; i++)
     {
         pPool->pBlocks[i].pData = pPool->pRaw + i * block_size;
@@ -121,6 +137,7 @@ bool PodFramePool_create(PodFramePool **ppPool, uint32_t block_count_pow2,
         pPool->pBlocks[i].StreamId = 0u;
     }
 
+    /* 创建完成后，全部块都应处于空闲可写状态。 */
     if (!FramePool_fillFreeQueue(pPool))
     {
         PodSpscQueue_dispose(pPool->pFreeQueue);
@@ -175,6 +192,7 @@ PodFrameBlock *PodFramePool_acquireFree(PodFramePool *pPool)
     if (PodSpscQueue_pop(pPool->pFreeQueue, &pItem))
     {
         PodFrameBlock *pBlock = (PodFrameBlock *)pItem;
+        /* 每次重新分配给生产者前，先清掉旧长度。 */
         pBlock->Length = 0u;
         return pBlock;
     }
@@ -187,6 +205,7 @@ bool PodFramePool_releaseFree(PodFramePool *pPool, PodFrameBlock *pBlock)
     ZF_ASSERT(pPool != (PodFramePool *)0)
     ZF_ASSERT(pBlock != (PodFrameBlock *)0)
 
+    /* 回收到 free 队列时只清空长度，其他元数据由下次写入者覆盖。 */
     pBlock->Length = 0u;
     return PodSpscQueue_push(pPool->pFreeQueue, (void *)pBlock);
 }
@@ -198,6 +217,7 @@ bool PodFramePool_pushReady(PodFramePool *pPool, PodFrameBlock *pBlock)
 
     if (pBlock->Length > pBlock->Capacity)
     {
+        /* 冗余保险：避免越界长度被继续向下游传播。 */
         pBlock->Length = pBlock->Capacity;
     }
 

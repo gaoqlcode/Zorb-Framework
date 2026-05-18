@@ -4,6 +4,12 @@
 #include "../../../inc/pod/control/pod_tcp_control.h"
 #endif
 
+#if __has_include("pod_camera_plugin.h")
+#include "pod_camera_plugin.h"
+#else
+#include "../../../inc/pod/plugin/pod_camera_plugin.h"
+#endif
+
 #include <string.h>
 
 #if defined(__linux__)
@@ -126,6 +132,7 @@ static PodReqCtx ParseReqPrefix(char **psaveptr, char *first_token)
 static PodCameraPlugin *FindPlugin(PodTcpControlServer *pServer,
     const char *name)
 {
+    /* 控制面通过名字路由到具体插件。 */
     if (pServer->Config.pPluginManager == NULL || name == NULL)
     {
         return NULL;
@@ -144,6 +151,7 @@ static void HandleStatusCmd(PodTcpControlServer *pServer, const PodReqCtx *pReq)
         plugin_count = PodPluginManager_getCount(pServer->Config.pPluginManager);
     }
 
+    /* STATUS 用于给上位机快速确认系统是否在线。 */
     (void)snprintf(msg, sizeof(msg), "running=%u plugins=%lu client=%s",
         (unsigned int)pServer->IsStarted,
         (unsigned long)plugin_count,
@@ -168,6 +176,7 @@ static void HandleListCmd(PodTcpControlServer *pServer, const PodReqCtx *pReq)
     msg[0] = '\0';
     count = PodPluginManager_getCount(pServer->Config.pPluginManager);
 
+    /* 把当前注册的插件列表拼成一行文本返回。 */
     for (i = 0u; i < count; i++)
     {
         PodCameraPlugin *pPlugin = PodPluginManager_getAtIndex(
@@ -227,6 +236,7 @@ static void HandleCommand(PodTcpControlServer *pServer, const char *cmd)
         return;
     }
 
+    /* PING/PONG 是最基本的链路活性探测。 */
     if (strcmp(token, "PING") == 0)
     {
         SendAck(pServer->ClientFd, req.HasRequestId, req.RequestId,
@@ -246,6 +256,7 @@ static void HandleCommand(PodTcpControlServer *pServer, const char *cmd)
         return;
     }
 
+    /* SET 走插件的 SetParam 接口。 */
     if (strcmp(token, "SET") == 0)
     {
         char *plugin_name = strtok_r(NULL, " \t\r\n", &saveptr);
@@ -287,6 +298,7 @@ static void HandleCommand(PodTcpControlServer *pServer, const char *cmd)
         return;
     }
 
+    /* GET 走插件的 GetParam 接口。 */
     if (strcmp(token, "GET") == 0)
     {
         char *plugin_name = strtok_r(NULL, " \t\r\n", &saveptr);
@@ -335,6 +347,7 @@ static void HandleCommand(PodTcpControlServer *pServer, const char *cmd)
         return;
     }
 
+    /* GIMBAL 命令由外部 hook 接管，服务器只负责协议桥接。 */
     if (strcmp(token, "GIMBAL") == 0)
     {
         char *subcmd = strtok_r(NULL, " \t\r\n", &saveptr);
@@ -413,6 +426,7 @@ bool PodTcpControlServer_create(PodTcpControlServer **ppServer,
     ZF_ASSERT(ppServer != (PodTcpControlServer **)0)
     ZF_ASSERT(pConfig != (PodTcpControlConfig *)0)
 
+    /* 服务对象本身只保存配置和连接状态。 */
     pServer = (PodTcpControlServer *)ZF_MALLOC(sizeof(PodTcpControlServer));
     if (pServer == NULL)
     {
@@ -451,6 +465,7 @@ int32_t PodTcpControlServer_start(PodTcpControlServer *pServer)
     struct sockaddr_in addr;
     int flags;
 
+    /* 建立监听 socket，后续 pollOnce 里再做非阻塞 accept。 */
     pServer->ListenFd = socket(AF_INET, SOCK_STREAM, 0);
     if (pServer->ListenFd < 0)
     {
@@ -516,6 +531,7 @@ int32_t PodTcpControlServer_pollOnce(PodTcpControlServer *pServer)
         {
             int flags = fcntl(pServer->ClientFd, F_GETFL, 0);
             (void)fcntl(pServer->ClientFd, F_SETFL, flags | O_NONBLOCK);
+            /* 新客户端接入后先回一个欢迎消息，便于上位机确认连接建立。 */
             SendText(pServer->ClientFd, "WELCOME\n");
         }
         return 0;

@@ -29,7 +29,7 @@ extern "C" {
 #define EVENT_HIGHEST_PRIORITY 0  /* 事件最高优先级(用户不可用) */
 #define EVENT_LOWEST_PRIORITY 32  /* 事件最低优先级(用户不可用) */
 
-/* 推送事件 */
+/* 推送事件到处理器。 */
 #define EVENT_POST(handler_, event_) handler_->Add(handler_, event_)
 
 /* 事件 */
@@ -39,12 +39,15 @@ typedef struct _EventHandler EventHandler;
 /* 事件处理程序类型 */
 typedef void (*IEventProcess)(List *pArgList);
 
-/* 事件结构 */
+/*
+ * Event 是“待执行动作 + 参数列表”的组合。
+ * 和任务相比，事件没有独立栈，更适合短小、异步、离散的工作项。
+ */
 struct _Event
 {
     uint8_t Priority;               /* 优先级 */
     IEventProcess EventProcess;     /* 事件程序 */
-    List *pArgList;                 /* 事件程序的参数指针 */
+  List *pArgList;                 /* 事件程序参数列表，按 AddArg 顺序保存 */
     
     /* 增加程序参数(深拷贝，按先后顺序入队列) */
     bool (*AddArg)(Event * const pEvent, void *pArg, uint32_t size);
@@ -53,7 +56,10 @@ struct _Event
     bool (*Dispose)(Event * const pEvent);
 };
 
-/* 事件处理器结构 */
+/*
+ * EventHandler 持有一个按优先级排序的事件队列。
+ * Execute 每次通常处理队头事件，因此优先级值越小越先执行。
+ */
 struct _EventHandler
 {
     List *pEventList;   /* 事件列表 */
@@ -78,7 +84,7 @@ struct _EventHandler
     void (*Execute)(struct _EventHandler * const pEventHandler);
 };
 
-/* 创建事件 */
+/* 创建事件对象。 */
 bool Event_create(Event **ppEvent);
 
 /* 增加事件参数(深拷贝，按先后顺序入队列) */
@@ -87,7 +93,7 @@ bool Event_addArg(Event * const pEvent, void *pArg, uint32_t size);
 /* 销毁事件 */
 bool Event_Dispose(Event * const pEvent);
 
-/* 创建事件处理器 */
+/* 创建事件处理器。 */
 bool EventHandler_create(EventHandler **ppEventHandler);
 
 /* 获取事件数 */

@@ -10,14 +10,16 @@ extern "C" {
 
 typedef struct _PodCpuPlan
 {
-    /* 采集、编码、网络、控制线程绑定 CPU 核编号 */
+    /* 采集、编码、网络、控制线程绑定 CPU 核编号。 */
     uint8_t CaptureCpu;
     uint8_t EncodeCpu;
     uint8_t NetworkCpu;
     uint8_t ControlCpu;
 } PodCpuPlan;
 
+/* 保存平台 CPU 规划。 */
 void PodPlatform_setCpuPlan(const PodCpuPlan *pPlan);
+/* 读取当前 CPU 规划。 */
 const PodCpuPlan *PodPlatform_getCpuPlan(void);
 
 /* 绑定当前线程到指定 CPU 核 */

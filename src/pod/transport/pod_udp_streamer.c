@@ -33,7 +33,7 @@
 
 typedef struct _PodUdpHeader
 {
-    /* 固定头：接收端按该头完成重组和帧边界识别。 */
+    /* 固定头：接收端按该头完成分片重组和帧边界识别。 */
     uint16_t Magic;
     uint8_t Version;
     uint8_t StreamId;
@@ -78,6 +78,7 @@ static void NotifyDrop(PodUdpStreamer *pStreamer, uint8_t stream_id,
 
 static uint16_t GetMaxPayload(uint16_t mtu)
 {
+    /* MTU 里还要留出自定义协议头空间。 */
     if (mtu <= (uint16_t)sizeof(PodUdpHeader))
     {
         return 0u;
@@ -90,6 +91,7 @@ static uint16_t GetMaxPayload(uint16_t mtu)
 static int GetSockByStream(PodUdpStreamer *p, uint8_t stream_id,
     struct sockaddr_in **ppAddr)
 {
+    /* 不同视频流对应不同 UDP 端口。 */
     if (stream_id == POD_STREAM_VIS_ID)
     {
         *ppAddr = &p->AddrVis;
@@ -122,6 +124,7 @@ bool PodUdpStreamer_create(PodUdpStreamer **ppStreamer, uint16_t mtu)
 
     ZF_ASSERT(ppStreamer != (PodUdpStreamer **)0)
 
+    /* MTU 太小时即使不含业务数据，也无法容纳自定义头。 */
     if (mtu < 256u)
     {
         *ppStreamer = NULL;
@@ -166,6 +169,7 @@ void PodUdpStreamer_dispose(PodUdpStreamer *pStreamer)
         return;
     }
 
+    /* 销毁前统一 stop，确保 socket 被关闭。 */
     (void)PodUdpStreamer_stop(pStreamer);
     ZF_FREE(pStreamer);
 }
@@ -182,6 +186,7 @@ bool PodUdpStreamer_setTarget(PodUdpStreamer *pStreamer,
         return false;
     }
 
+    /* 三路流虽然是不同端口，但发往同一地面端 IP。 */
     memset(&pStreamer->AddrVis, 0, sizeof(struct sockaddr_in));
     memset(&pStreamer->AddrNir, 0, sizeof(struct sockaddr_in));
     memset(&pStreamer->AddrTir, 0, sizeof(struct sockaddr_in));
@@ -212,6 +217,7 @@ int32_t PodUdpStreamer_start(PodUdpStreamer *pStreamer)
 #if defined(__linux__)
     int flags;
 
+    /* 为三路流各自创建 socket，避免发送路径混淆。 */
     pStreamer->SockVis = socket(AF_INET, SOCK_DGRAM, 0);
     pStreamer->SockNir = socket(AF_INET, SOCK_DGRAM, 0);
     pStreamer->SockTir = socket(AF_INET, SOCK_DGRAM, 0);
@@ -223,6 +229,7 @@ int32_t PodUdpStreamer_start(PodUdpStreamer *pStreamer)
         return -1;
     }
 
+    /* 使用非阻塞 socket，发送失败由上层策略决定如何处理。 */
     flags = fcntl(pStreamer->SockVis, F_GETFL, 0);
     (void)fcntl(pStreamer->SockVis, F_SETFL, flags | O_NONBLOCK);
 
@@ -294,6 +301,7 @@ int32_t PodUdpStreamer_sendFrame(PodUdpStreamer *pStreamer,
         int sent;
 #endif
 
+        /* 每个分片只从原始帧里截取本片负责的那一段。 */
         if (offset >= pBlock->Length)
         {
             payload_len = 0u;
@@ -330,6 +338,7 @@ int32_t PodUdpStreamer_sendFrame(PodUdpStreamer *pStreamer,
             return -3;
         }
 
+        /* 先写协议头，再拼接本片的有效负载。 */
         memcpy(packet_buf, &hdr, sizeof(PodUdpHeader));
         if (payload_len > 0u)
         {

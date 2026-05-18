@@ -8,17 +8,24 @@ extern "C" {
 #include <stdbool.h>
 #include <stdio.h>
 
-/* 日志等级 */
+/* 日志等级。 */
 #define LOG_D 0
 #define LOG_W 1
 #define LOG_E 2
 
-/* 调试输出开关 */
+/*
+ * 调试输出开关。
+ * 关闭后宏会退化为空，实现零运行时开销的静默模式。
+ */
 #define _ZF_DEBUG
 #define ZF_DEBUG_ON true
 
 #ifdef _ZF_DEBUG
 #if ZF_DEBUG_ON
+/*
+ * 日志输出宏。
+ * 这里用最简单的 printf 方案做兼容，适合 PC/Linux 侧演示和早期联调。
+ */
 #define ZF_DEBUG(rank, ...) do                            \
 {                                                         \
     char code[10] = "[rank=0]";                          \

@@ -18,12 +18,14 @@
 
 static bool IsPowerOfTwo(uint32_t v)
 {
+    /* 环形队列用掩码回绕时，容量必须是 2 的幂。 */
     return (v > 1u) && ((v & (v - 1u)) == 0u);
 }
 
 static void PodMemoryBarrier(void)
 {
 #if defined(__GNUC__) || defined(__clang__)
+    /* 保证槽写入和索引更新对另一侧观察顺序一致。 */
     __sync_synchronize();
 #else
     /* 未知编译器下的保守兜底：保持为空实现 */
@@ -36,6 +38,7 @@ bool PodSpscQueue_create(PodSpscQueue **ppQueue, uint32_t capacity_pow2)
 
     ZF_ASSERT(ppQueue != (PodSpscQueue **)0)
 
+    /* 非 2 的幂会破坏 Mask 回绕逻辑。 */
     if (!IsPowerOfTwo(capacity_pow2))
     {
         *ppQueue = NULL;
@@ -49,6 +52,7 @@ bool PodSpscQueue_create(PodSpscQueue **ppQueue, uint32_t capacity_pow2)
         return false;
     }
 
+    /* 槽数组只保存指针，因此创建和移动成本都很低。 */
     pQueue->pSlots = (void **)ZF_MALLOC(sizeof(void *) * capacity_pow2);
     if (pQueue->pSlots == NULL)
     {
@@ -73,6 +77,7 @@ bool PodSpscQueue_init(PodSpscQueue *pQueue, void **pExternSlots,
 {
     ZF_ASSERT(pQueue != (PodSpscQueue *)0)
 
+    /* 允许队列对象和槽数组分离，便于放到静态内存或共享内存里。 */
     if (!IsPowerOfTwo(capacity_pow2) || pExternSlots == NULL)
     {
         return false;
@@ -114,12 +119,14 @@ bool PodSpscQueue_push(PodSpscQueue *pQueue, void *pItem)
     w = pQueue->WriteIndex;
     r = pQueue->ReadIndex;
 
+    /* 写索引和读索引之差达到容量时，说明队列已满。 */
     if ((w - r) >= pQueue->Capacity)
     {
         pQueue->DropCount++;
         return false;
     }
 
+    /* 用掩码而不是取模，减少回绕成本。 */
     pQueue->pSlots[w & pQueue->Mask] = pItem;
     PodMemoryBarrier();
     pQueue->WriteIndex = w + 1u;
@@ -138,6 +145,7 @@ bool PodSpscQueue_pop(PodSpscQueue *pQueue, void **ppItem)
     r = pQueue->ReadIndex;
     w = pQueue->WriteIndex;
 
+    /* 写读索引相等表示当前没有任何可消费元素。 */
     if (w == r)
     {
         return false;
@@ -153,6 +161,7 @@ bool PodSpscQueue_pop(PodSpscQueue *pQueue, void **ppItem)
 uint32_t PodSpscQueue_count(PodSpscQueue *pQueue)
 {
     ZF_ASSERT(pQueue != (PodSpscQueue *)0)
+    /* SPSC 模型下，元素数就是写索引减读索引。 */
     return pQueue->WriteIndex - pQueue->ReadIndex;
 }
 

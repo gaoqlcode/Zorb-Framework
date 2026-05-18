@@ -26,7 +26,12 @@ extern "C" {
 #include "stdbool.h"
 #include "zf_task.h"
 
-/* 获取最高优先级任务 */
+/*
+ * 获取当前可运行的最高优先级任务。
+ * “可运行”同时要求：
+ * 1. 状态是 RUNNING。
+ * 2. DelayTime 已经归零。
+ */
 Task *Task_getTopPriorityTask(void);
 
 #ifdef __cplusplus

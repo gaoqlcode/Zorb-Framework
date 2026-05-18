@@ -25,7 +25,7 @@ extern "C" {
 #include "stdbool.h"
 #include "stdint.h"
 
-/* 系统滴答周期(ms) */
+/* 系统滴答周期(ms)。整个时间、定时器、任务延时都以它为基础。 */
 #define ZF_TICK_PERIOD 1
 
 /* 获取系统滴答数 */
@@ -34,7 +34,11 @@ extern "C" {
 /* 获取系统时间(ms) */
 #define ZF_SYSTIME_MS() ZF_getSystemTimeMS()
 
-/* 系统延时(ms) */
+/*
+ * 系统延时(ms)。
+ * 如果任务系统在运行，会转成任务延时并让出 CPU；
+ * 否则退化为忙等。
+ */
 #define ZF_DELAY_MS(ms_) do                            \
 {                                                      \
     if (ms_ % ZF_TICK_PERIOD)                          \
@@ -56,7 +60,7 @@ uint32_t ZF_getSystemTimeMS(void);
 /* 系统延时 */
 void ZF_delayTick(uint32_t tick);
 
-/* 系统滴答程序(需挂在硬件的时间中断里边) */
+/* 系统滴答程序(需挂在硬件的时间中断里)。 */
 void ZF_timeTick (void);
 
 #ifdef __cplusplus

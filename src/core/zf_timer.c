@@ -4,13 +4,13 @@
   * @author  Zorb
   * @version V1.0.0
   * @date    2018-06-28
-  * @brief   ������ʱ��(����1ms)��ʵ��
+ * @brief   软件定时器实现
   *****************************************************************************
   * @history
   *
   * 1. Date:2018-06-28
   *    Author:Zorb
-  *    Modification:�����ļ�
+    *    Modification:建立文件
   *
   *****************************************************************************
   */
@@ -23,21 +23,19 @@
 #include "zf_time.h"
 #include "zf_task.h"
 
-/* �򿪶�ʱ�����г��� */
+/* 打开定时器扫描过程。 */
 #define TIMER_PROCESS_ENABLE() mIsTimerProcessOn = true
-/* �رն�ʱ�����г��� */
+/* 关闭定时器扫描过程。 */
 #define TIMER_PROCESS_DISABLE() mIsTimerProcessOn = false
 
-/* ��ʱ�����г��򿪵ı�־ */
+/* 是否启用 Timer_process 扫描。 */
 static bool mIsTimerProcessOn = false;
 
-/* ��ʱ���б� */
+/* 系统内所有软件定时器。 */
 static List *pmTimerList = NULL;
 
 /******************************************************************************
- * ����  ��ˢ�¶�ʱ����ʱ����ʱ��
- * ����  ��(in)-pTimer ��ʱ��ָ��
- * ����  ����
+ * 功能  刷新下一次触发时间
 ******************************************************************************/
 static void RefreshAlarmTime(Timer * const pTimer)
 {
@@ -47,9 +45,8 @@ static void RefreshAlarmTime(Timer * const pTimer)
 }
 
 /******************************************************************************
- * ����  ��������ʱ��(�ڲ�����ռ�)
- * ����  ��(out)-ppTimer ��ʱ��ָ���ָ��
- * ����  ����
+ * 功能  创建定时器
+ * 说明  定时器对象会被加入全局定时器链表，等待 Timer_process 扫描。
 ******************************************************************************/
 bool Timer_create(Timer **ppTimer)
 {
@@ -77,35 +74,34 @@ bool Timer_create(Timer **ppTimer)
     pTimer->Restart = Timer_restart;
     pTimer->Dispose = Timer_dispose;
     
-    /* ������ʱ���б� */
+    /* 首次创建定时器时顺带初始化全局定时器链表。 */
     if (pmTimerList == NULL)
     {
         if (!List_create(&pmTimerList))
         {
             ZF_DEBUG(LOG_E, "malloc timer list space error\r\n");
             
-            /* ��� */
+            /* ��� */
             *ppTimer = NULL;
             return false;
         }
         
-        /* �򿪶�ʱ�����г��� */
+        /* 链表创建成功后打开后台扫描。 */
         TIMER_PROCESS_ENABLE();
     }
     
-    /* ���ӵ���ʱ���б� */
+    /* ���ӵ���ʱ���б� */
     pmTimerList->Add(pmTimerList, pNode);
     
-    /* ��� */
+    /* ��� */
     *ppTimer = pTimer;
     
     return true;
 }
 
 /******************************************************************************
- * ����  ����ʼ��ʱ��
- * ����  ��(in)-pTimer ��ʱ��ָ��
- * ����  ����
+ * 功能  启动定时器
+ * 说明  启动后并不会立刻触发，而是在到达 AlarmTime 时触发。
 ******************************************************************************/
 void Timer_start(Timer * const pTimer)
 {
@@ -119,9 +115,7 @@ void Timer_start(Timer * const pTimer)
 }
 
 /******************************************************************************
- * ����  ���رն�ʱ��
- * ����  ��(in)-pTimer ��ʱ��ָ��
- * ����  ����
+ * 功能  停止定时器
 ******************************************************************************/
 void Timer_stop(Timer * const pTimer)
 {
@@ -131,9 +125,8 @@ void Timer_stop(Timer * const pTimer)
 }
 
 /******************************************************************************
- * ����  ���������ж�ʱ��
- * ����  ��(in)-pTimer ��ʱ��ָ��
- * ����  ����
+ * 功能  重启定时器
+ * 说明  等价于 Stop 后重新按当前时刻计算 AlarmTime。
 ******************************************************************************/
 void Timer_restart(Timer * const pTimer)
 {
@@ -145,9 +138,8 @@ void Timer_restart(Timer * const pTimer)
 }
 
 /******************************************************************************
- * ����  �����ٶ�ʱ��(�ͷſռ�)
- * ����  ��(in)-pTimer ��ʱ��ָ��
- * ����  ����
+ * 功能  销毁定时器
+ * 说明  从全局链表移除，但不主动关闭 Timer_process 总开关。
 ******************************************************************************/
 bool Timer_dispose(Timer * const pTimer)
 {
@@ -158,7 +150,7 @@ bool Timer_dispose(Timer * const pTimer)
     
     Timer_stop(pTimer);
     
-    /* ɾ����ʱ�� */
+    /* 从全局定时器链表中移除目标定时器。 */
     while(pmTimerList->GetElementByData(pmTimerList, pTimer, &pNode))
     {
         if (pNode == NULL)
@@ -178,26 +170,25 @@ bool Timer_dispose(Timer * const pTimer)
 }
 
 /******************************************************************************
- * ����  �����Ͷ�ʱ�¼�
- * ����  ��(in)-pTimer ��ʱ��ָ��
- * ����  ����
+ * 功能  投递定时器事件
+ * 说明  当定时器绑定了事件处理器时，不直接执行回调，而是转成一个事件。
 ******************************************************************************/
 static void Timer_postEvent(Timer *pTimer)
 {
-    /* �����¼� */
+    /* 创建一个事件，把 TimerProcess 包装进去。 */
     Event *pEvent;
     Event_create(&pEvent);
     pEvent->Priority = pTimer->Priority;
     pEvent->EventProcess = (IEventProcess)pTimer->TimerProcess;
     pEvent->pArgList = NULL; 
     
-    /* �����¼� */
+    /* 投递到目标事件处理器。 */
     EVENT_POST(pTimer->pEventHandler, pEvent);
     
-    /* ����ʱ�� */
+    /* 如果目标是空闲任务处理器，则提升空闲任务优先级，确保事件尽快执行。 */
     if (pTimer->pEventHandler == TASK_GET_IDLE_TASK_HANDLER())
     {
-        /* ���ÿ�������ȼ� */
+        /* 提升空闲任务优先级，让该定时事件尽快得到执行。 */
         if (TASK_GET_IDLE_TASK()->Priority > pTimer->Priority)
         {
             TASK_GET_IDLE_TASK()->Priority = pTimer->Priority;
@@ -206,13 +197,13 @@ static void Timer_postEvent(Timer *pTimer)
 }
 
 /******************************************************************************
- * ����  ����̨���г���(����1ms�ڵ�ѭ�����)
- * ����  ����
- * ����  ����
+ * 功能  定时器后台扫描
+ * 说明  建议每 1ms 调用一次。
+ *       它会遍历全部定时器，检查是否到期，并决定直接执行还是转成事件。
 ******************************************************************************/
 void Timer_process(void)
 {
-    /* û�д򿪶�ʱ�����г����򷵻� */
+    /* 总开关关闭时直接返回。 */
     if (!mIsTimerProcessOn)
     {
         return;
@@ -224,20 +215,20 @@ void Timer_process(void)
         ListNode *pNode;
         Timer *pTimer;
         
-        /* �������ж�ʱ�� */
+        /* 逐个扫描所有定时器。 */
         for (i = 0; i < pmTimerList->Count; i++)
         {
             if (pmTimerList->GetElementAt(pmTimerList, i, &pNode))
             {
                 pTimer = (Timer *)pNode->pData;
                 
-                /* ��ʱ���ڹ��� */
+                /* 只处理处于运行中的定时器。 */
                 if (pTimer->IsRunning)
                 {
-                    /* ���ﶨʱʱ�� */
+                    /* 到达或超过触发时间时执行。 */
                     if (ZF_SYSTIME_MS() >= pTimer->AlarmTime)
                     {
-                        /* �ظ����� */
+                        /* 自动重装定时器会继续下一轮，否则只触发一次。 */
                         if(pTimer->IsAutoReset)
                         {
                             pTimer->Restart(pTimer);
@@ -247,17 +238,17 @@ void Timer_process(void)
                             pTimer->Stop(pTimer);
                         }
                         
-                        /* ִ���¼� */
+                        /* 到点后执行回调：本地直接执行，或转事件异步执行。 */
                         if (pTimer->TimerProcess != NULL)
                         {
                             if (pTimer->pEventHandler == NULL)
                             {
-                                /* ����ִ�� */
+                                /* 未绑定事件处理器时，直接在当前上下文执行回调。 */
                                 pTimer->TimerProcess();
                             }
                             else
                             {
-                                /* �����¼� */
+                                /* 绑定了处理器时，把回调包装成事件异步执行。 */
                                 Timer_postEvent(pTimer);
                             }
                         }
@@ -268,5 +259,5 @@ void Timer_process(void)
     }
 }
 
-/******************************** �ļ����� ********************************/
+/******************************** 文件结束 ********************************/
 

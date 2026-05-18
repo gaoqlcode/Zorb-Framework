@@ -28,7 +28,12 @@ extern "C" {
 #include "zf_timer.h"
 #include "zf_event.h"
 
-/* 用户任务优先级1-31,数字越小,优先级越高 */
+/*
+ * 任务系统是对事件系统之上的一层调度抽象：
+ * - 任务有独立堆栈。
+ * - 调度器总是选择“可运行且优先级最高”的任务执行。
+ * - 数字越小优先级越高，这和很多 RTOS 的约定一致。
+ */
 
 /* 任务最高优先级(用户不可用) */
 #define TASK_HIGHEST_PRIORITY EVENT_HIGHEST_PRIORITY
@@ -79,16 +84,20 @@ typedef enum _TaskState
     TASK_STATE_RUNNING            /* 运行 */
 } TaskState;
 
-/* 任务结构 */
+/*
+ * Task 结构既保存运行期状态，也暴露面向对象风格的方法指针。
+ * 学习时建议重点看 Priority、State、DelayTime、RunTime 四个字段，
+ * 这四个字段基本解释了调度器为什么会选中某个任务。
+ */
 typedef struct _Task
 {
-    uint32_t *pStkPtr;            /* 堆栈指针 */
-    uint32_t *pStkBase;           /* 堆栈基地址 */
-    uint32_t StkSize;             /* 堆栈大小 */
-    uint32_t DelayTime;           /* 任务延时时间(系统周期) */
-    uint8_t Priority;             /* 任务优先级 */
-    uint8_t State;                /* 任务状态 */
-    uint32_t RunTime;             /* 任务总运行时间(系统周期) */
+    uint32_t *pStkPtr;            /* 当前上下文保存/恢复时使用的栈顶指针 */
+    uint32_t *pStkBase;           /* 整个任务栈的起始地址，用于释放与调试 */
+    uint32_t StkSize;             /* 栈空间大小，单位字节 */
+    uint32_t DelayTime;           /* 延时剩余 tick，大于 0 时不会被调度运行 */
+    uint8_t Priority;             /* 任务优先级，值越小越容易抢占 CPU */
+    uint8_t State;                /* 任务当前状态：运行或停止 */
+    uint32_t RunTime;             /* 累计运行 tick，可用于简单统计 */
     
     /* 开始任务 */
     bool (*Start)(struct _Task * const pTask);
@@ -100,7 +109,7 @@ typedef struct _Task
     void (*Dispose)(struct _Task * const pTask);
     
     /* 延时任务 */
-    bool (*Delay)(struct _Task * const pTask, uint32_t tick);
+    void (*Delay)(struct _Task * const pTask, uint32_t tick);
 } Task;
 
 extern Task *pTopPriorityTask;              /* 最高优先级任务 */
@@ -110,35 +119,35 @@ extern EventHandler *pIdleTaskEventHandler; /* 空闲任务事件处理器 */
 extern bool mIsScheduleOn;                  /* 任务调度开的标志 */
 extern bool mIsTaskSystemRun;               /* 任务系统是否开始的标志 */
 
-/* 获取任务列表 */
+/* 获取系统任务链表，便于调试或做运行态统计。 */
 List *Task_getTaskList(void);
 
-/* 创建任务 */
+/* 创建任务：分配 Task 对象、栈空间，并插入任务链表。 */
 bool Task_create(Task **ppTask, ITaskProcess taskProcess, void *pArg,
     uint8_t priority, uint32_t stkSize);
 
-/* 开始任务 */
+/* 将任务标记为可运行。 */
 bool Task_start(Task * const pTask);
 
-/* 停止任务 */
+/* 将任务标记为停止，不再参与调度。 */
 bool Task_stop(Task * const pTask);
 
-/* 销毁任务 */
+/* 销毁任务。实际释放动作由空闲任务异步完成，避免在当前上下文直接删自己。 */
 void Task_dispose(Task * const pTask);
 
-/* 延时任务 */
+/* 当前任务主动延时指定 tick。 */
 void Task_delay(struct _Task * const pTask, uint32_t tick);
 
-/* 任务调度开关 */
+/* 开关调度器，用于临界区或批量修改任务状态。 */
 void Task_scheduleSwitch(bool on);
 
-/* 任务调度 */
+/* 触发一次调度决策，必要时执行上下文切换。 */
 void Task_schedule(void);
 
-/* 任务时间更新 */
+/* 在系统时钟节拍中调用，维护 DelayTime 与 RunTime。 */
 void Task_timeUpdate(void);
 
-/* 运行所有任务,程序不返回 */
+/* 启动任务系统并切入调度循环，正常情况下不会返回。 */
 void Task_run(void);
 
 #ifdef __cplusplus

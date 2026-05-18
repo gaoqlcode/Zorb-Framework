@@ -58,6 +58,7 @@ static uint32_t ParseU32(const char *value)
 {
     uint32_t v = 0;
 
+    /* 这里故意做极简十进制解析，避免引入标准库更重的转换依赖。 */
     while (value != NULL && *value >= '0' && *value <= '9')
     {
         v = v * 10u + (uint32_t)(*value - '0');
@@ -69,7 +70,7 @@ static uint32_t ParseU32(const char *value)
 
 static bool ApplyKeyValue(PodProfile *p, const char *key, const char *value)
 {
-    /* 配置项分发：未知 key 返回 false，不中断整体解析 */
+    /* 配置项分发：未知 key 返回 false，但不打断整份配置继续解析。 */
     if (strcmp(key, "enable_vis") == 0)
     {
         p->EnableVis = (uint8_t)ParseU32(value);
@@ -162,6 +163,7 @@ void PodProfile_setDefaults(PodProfile *pProfile)
 {
     ZF_ASSERT(pProfile != (PodProfile *)0)
 
+    /* 下面这组默认值代表一个“三路相机 + 网络推流 + 控制口”的典型配置。 */
     pProfile->EnableVis = 1u;
     pProfile->EnableNir = 1u;
     pProfile->EnableTir = 1u;
@@ -202,6 +204,7 @@ bool PodProfile_parseText(PodProfile *pProfile, const char *text)
         return false;
     }
 
+    /* 文本格式很简单：一行一个 key=value，支持 # 注释行。 */
     while (text[i] != '\0')
     {
         if (text[i] != '\n' && k < (uint32_t)(sizeof(line) - 1u))
@@ -222,6 +225,7 @@ bool PodProfile_parseText(PodProfile *pProfile, const char *text)
             char *pEq = NULL;
 
             TrimRight(pLine);
+            /* 空行和注释行直接跳过。 */
             if (*pLine == '\0' || *pLine == '#')
             {
                 continue;
@@ -237,6 +241,7 @@ bool PodProfile_parseText(PodProfile *pProfile, const char *text)
                 value = TrimLeft(pEq + 1);
                 TrimRight(key);
                 TrimRight(value);
+                /* 解析失败的 key 会被忽略，方便向后兼容。 */
                 ApplyKeyValue(pProfile, key, value);
             }
         }
@@ -280,6 +285,7 @@ bool PodProfile_loadFromFile(PodProfile *pProfile, const char *path)
 
     ZF_ASSERT(pProfile != (PodProfile *)0)
 
+    /* 这个函数把整个文件一次性读入内存，再复用 parseText。 */
     if (path == NULL)
     {
         return false;
@@ -291,6 +297,7 @@ bool PodProfile_loadFromFile(PodProfile *pProfile, const char *path)
         return false;
     }
 
+    /* 先求文件长度，便于一次性分配足够缓冲区。 */
     if (fseek(fp, 0, SEEK_END) != 0)
     {
         fclose(fp);
@@ -310,6 +317,7 @@ bool PodProfile_loadFromFile(PodProfile *pProfile, const char *path)
         return false;
     }
 
+    /* 额外预留一个字节给字符串结束符。 */
     buf = (char *)ZF_MALLOC((size_t)len + 1u);
     if (buf == NULL)
     {
@@ -324,9 +332,11 @@ bool PodProfile_loadFromFile(PodProfile *pProfile, const char *path)
         return false;
     }
 
+    /* 读取完成后手动补 '\0'，让 parseText 能按普通 C 字符串处理。 */
     buf[len] = '\0';
     fclose(fp);
 
+    /* 解析结束后立即释放临时缓冲区。 */
     ok = PodProfile_parseText(pProfile, buf);
     ZF_FREE(buf);
     return ok;

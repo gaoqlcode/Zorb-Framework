@@ -60,6 +60,7 @@ if(BUILD_POD_CORE)
     if(BUILD_POD_PLUGIN)
         set(POD_PLUGIN_SOURCES
             src/pod/plugin/pod_plugin_manager.c
+            src/pod/plugin/pod_camera_plugin_template.c
         )
         list(APPEND POD_CORE_SOURCES ${POD_PLUGIN_SOURCES})
     endif()

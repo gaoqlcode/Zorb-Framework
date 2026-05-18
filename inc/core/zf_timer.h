@@ -26,15 +26,18 @@ extern "C" {
 #include "stdbool.h"
 #include "zf_event.h"
 
-/* 定时器处理程序 */
+/* 定时器处理程序。 */
 typedef void (*ITimerProcess)(void);
 
-/* 定时器结构 */
+/*
+ * 软件定时器本质上是“按时间触发的事件源”。
+ * 到点后可以直接执行回调，也可以投递到事件处理器异步执行。
+ */
 typedef struct _Timer
 {
     uint8_t Priority;               /* 事件优先级 */
     uint32_t Interval;              /* 时间间隔(ms) */
-    uint32_t AlarmTime;             /* 定时到达时间 */
+  uint32_t AlarmTime;             /* 下一次触发时间点 */
     bool IsAutoReset;               /* 重复运行(默认开) */
     bool IsRunning;                 /* 是否正在运行(默认关) */
     /* 事件的处理者，事件将推送到处理者的队列 */
@@ -56,7 +59,7 @@ typedef struct _Timer
     bool (*Dispose)(struct _Timer * const pTimer);
 } Timer;
 
-/* 创建定时器(内部分配空间) */
+/* 创建定时器(内部分配空间)。 */
 bool Timer_create(Timer ** ppTimer);
 
 /* 开始定时器 */
@@ -71,7 +74,7 @@ void Timer_restart(Timer * const pTimer);
 /* 销毁定时器(释放空间) */
 bool Timer_dispose(Timer * const pTimer);
 
-/* 后台运行程序(放在1ms内的循环里边) */
+/* 后台运行程序(放在 1ms 节拍循环里调用)。 */
 void Timer_process(void);
 
 #ifdef __cplusplus
